@@ -22,9 +22,31 @@ app.set('port', port);
 var server = http.createServer(app);
 var io = require('socket.io')(server);
 
-io.on('connection', (socket) => {
-  console.log('a user connected')
-})
+io.on('connection', function(socket){
+  socket.on('Start', function(data){
+    console.log('socket start!!');
+    console.log(data);
+    var Name = data.Name;
+    Files[Name] = {
+      FileSize : data.Size,
+      Data : "",
+      Downloaded : 0
+    };
+    var Place = 0;
+    var Stat = fs.statSync('Temp/' + Name);
+    if(Stat.isFile()){
+      Files[Name].Downloaded = Stat.size;
+      Place = Stat.size / 524288;
+    }
+    fs.open("Temp/" + Name, "a+", function(err, fd){
+      if(err) console.log(err);
+      else {
+        Files[Name].Handler = fd;
+        socket.emit('MoreData', { 'Place' : Place, Percent : 0 });
+      }
+    });
+  })
+});
 
 /**
  * Listen on provided port, on all network interfaces.
