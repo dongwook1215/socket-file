@@ -46,6 +46,44 @@ io.on('connection', function(socket){
       }
     });
   })
+  socket.on('Upload', function (data){
+    var Name = data.Name;
+    Files[Name].Downloaded += data.Data.length;
+    Files[Name].Data += data.Data;
+    if(Files[Name].Downloaded == Files[Name].FileSize){
+      fs.write(Files[Name].Handler, Files[Name].Data, null, 'Binary', function(err, written) {
+        if (err) console.error(err);
+        //Generate movie thumbnail
+        var readable = fs.createReadStream("Temp/" + Name);
+        var writable = fs.createWriteStream("Video/" + Name);
+        readable.pipe(writable);
+        writable.on('finish', function (err) {
+          if (err) console.error(err);
+          console.log(Name + " : writing is completed.");
+          fs.close(Files[Name].Handler, function (err) { //close fs module
+            if (err) console.error(err);
+            fs.unlink("Temp/" + Name, function (err) {
+              //Moving File is Completed
+              if (err) console.error(err);
+              console.log(Name + " is deleted.");
+            });
+          });
+        });
+      });
+    }
+    else if(Files[Name].Data.length > 10485760){
+      fs.write(Files[Name].Handler, Files[Name].Data, null, 'Binary', function(err, written){
+        Files[Name].Data = ""; //Reset The Buffer
+        var Place = Files[Name].Downloaded / 524288;
+        var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
+        socket.emit('MoreData', { 'Place' : Place, 'Percent' : Percent});
+      });
+    } else {
+      var Place = Files[Name].Downloaded / 524288;
+      var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
+      socket.emit('MoreData', { 'Place' : Place, 'Percent' : Percent});
+    }
+  });
 });
 
 /**

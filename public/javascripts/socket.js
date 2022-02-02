@@ -32,6 +32,7 @@ function Ready(){
             reader.readAsArrayBuffer(fileData);
         }
     }
+
     socket.on('MoreData', function (data){
         UpdateBar(data.Percent);
         let Place = data.Place * 524288;
