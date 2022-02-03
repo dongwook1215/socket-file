@@ -7,6 +7,8 @@
 var app = require('../app');
 var debug = require('debug')('socket-file:server');
 var http = require('http');
+var fs = require('fs');
+var path = require('path');
 
 /**
  * Get port from environment and store in Express.
@@ -23,9 +25,9 @@ var server = http.createServer(app);
 var io = require('socket.io')(server);
 
 io.on('connection', function(socket){
+  var Files = {};
   socket.on('Start', function(data){
     console.log('socket start!!');
-    console.log(data);
     var Name = data.Name;
     Files[Name] = {
       FileSize : data.Size,
@@ -33,36 +35,38 @@ io.on('connection', function(socket){
       Downloaded : 0
     };
     var Place = 0;
-    var Stat = fs.statSync('Temp/' + Name);
+    var Stat = fs.statSync(path.join(__dirname,'..','Temp',Name));
     if(Stat.isFile()){
       Files[Name].Downloaded = Stat.size;
       Place = Stat.size / 524288;
     }
-    fs.open("Temp/" + Name, "a+", function(err, fd){
-      if(err) console.log(err);
-      else {
+    fs.open(path.join(__dirname,'..','Temp',Name), "a+", function(err, fd){
+      if(err) {
+        console.log(err);
+      }else {
         Files[Name].Handler = fd;
         socket.emit('MoreData', { 'Place' : Place, Percent : 0 });
       }
     });
   })
+
   socket.on('Upload', function (data){
-    var Name = data.Name;
+    const Name = data.Name;
     Files[Name].Downloaded += data.Data.length;
     Files[Name].Data += data.Data;
     if(Files[Name].Downloaded == Files[Name].FileSize){
       fs.write(Files[Name].Handler, Files[Name].Data, null, 'Binary', function(err, written) {
         if (err) console.error(err);
         //Generate movie thumbnail
-        var readable = fs.createReadStream("Temp/" + Name);
-        var writable = fs.createWriteStream("Video/" + Name);
+        var readable = fs.createReadStream(path.join(__dirname,'..','Temp',Name));
+        var writable = fs.createWriteStream(path.join(__dirname,'..','Video',Name));
         readable.pipe(writable);
         writable.on('finish', function (err) {
           if (err) console.error(err);
           console.log(Name + " : writing is completed.");
           fs.close(Files[Name].Handler, function (err) { //close fs module
             if (err) console.error(err);
-            fs.unlink("Temp/" + Name, function (err) {
+            fs.unlink(path.join(__dirname,'..','Temp',Name), function (err) {
               //Moving File is Completed
               if (err) console.error(err);
               console.log(Name + " is deleted.");
@@ -84,6 +88,7 @@ io.on('connection', function(socket){
       socket.emit('MoreData', { 'Place' : Place, 'Percent' : Percent});
     }
   });
+
 });
 
 /**
@@ -124,8 +129,8 @@ function onError(error) {
   }
 
   var bind = typeof port === 'string'
-    ? 'Pipe ' + port
-    : 'Port ' + port;
+      ? 'Pipe ' + port
+      : 'Port ' + port;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
@@ -149,7 +154,7 @@ function onError(error) {
 function onListening() {
   var addr = server.address();
   var bind = typeof addr === 'string'
-    ? 'pipe ' + addr
-    : 'port ' + addr.port;
+      ? 'pipe ' + addr
+      : 'port ' + addr.port;
   debug('Listening on ' + bind);
 }
