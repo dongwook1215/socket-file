@@ -1,10 +1,9 @@
 var SelectedFile;
 var fileReader;
 var Name;
-let socket;
 window.addEventListener("load", Ready);
 function Ready(){
-    socket = io()
+    var socket = io()
     if(window.File && window.FileReader){
         document.getElementById('UploadButton').addEventListener('click', function (){
             StartUpload(socket)
@@ -38,15 +37,11 @@ function Ready(){
         UpdateBar(data.Percent);
         let Place = data.Place * 524288;
         let NewFile = '';
-        if(SelectedFile.webkitSlice){
+        if(SelectedFile.webkitSlice)
             NewFile = SelectedFile.webkitSlice(Place, Place + Math.min(524288, (SelectedFile.size-Place)));
-        }else{
+        else
             NewFile = SelectedFile.slice(Place, Place + Math.min(524288, (SelectedFile.size-Place)));
-        }
-        console.log(NewFile);
-        // fileReader.readAsBinaryString(NewFile);
-        fileReader.readAsArrayBuffer(NewFile);
-        // console.log('test1');
+        fileReader.readAsBinaryString(NewFile);
     });
 }
 
@@ -69,11 +64,9 @@ function StartUpload(socket){
             }else{
                 var data = event.target.result;
             }
-            console.log(data);
-            socket.emit('Upload', { 'Name' : Name, 'Data' : data });
+            socket.emit('Upload', { 'Name' : Name, Data : data });
         }
         socket.emit('Start', { 'Name' : Name, 'Size' : SelectedFile.size });
-        // console.log('filereader:',fileReader);
     }else{
         alert("Please Select A File");
     }
