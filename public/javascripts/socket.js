@@ -9,6 +9,9 @@ function Ready(){
             StartUpload(socket)
         });
         document.getElementById('FileBox').addEventListener('change', FileChosen);
+        document.getElementById('download').addEventListener('click',function (){
+            StartDownload(socket)
+        })
     }else{
         document.getElementById('UploadArea').innerHTML = "지원되지 않는 브라우저입니다. 브라우저를 업데이트하거나 IE나 Chrome을 사용하세요.";
     }
@@ -35,13 +38,17 @@ function Ready(){
 
     socket.on('MoreData', function (data){
         UpdateBar(data.Percent);
-        let Place = data.Place * 524288;
-        let NewFile = '';
-        if(SelectedFile.webkitSlice)
-            NewFile = SelectedFile.webkitSlice(Place, Place + Math.min(524288, (SelectedFile.size-Place)));
-        else
-            NewFile = SelectedFile.slice(Place, Place + Math.min(524288, (SelectedFile.size-Place)));
-        fileReader.readAsBinaryString(NewFile);
+        if(data.Percent < 100){
+            let Place = data.Place * 524288;
+            let NewFile = '';
+            if(SelectedFile.webkitSlice){
+                NewFile = SelectedFile.webkitSlice(Place, Place + Math.min(524288, (SelectedFile.size-Place)));
+            } else{
+                NewFile = SelectedFile.slice(Place, Place + Math.min(524288, (SelectedFile.size-Place)));
+            }
+            console.log(NewFile);
+            fileReader.readAsArrayBuffer(NewFile);
+        }
     });
 }
 
@@ -53,7 +60,6 @@ function FileChosen(event) {
 function StartUpload(socket){
     if(document.getElementById('FileBox').value != "") {
         fileReader = new FileReader();
-        console.log(SelectedFile.type);
         Name = document.getElementById('NameBox').value;
         var Content = "<span id='NameArea'>Uploading " + SelectedFile.name + " as " + Name + "</span>";
         Content += "<span id='Uploaded'> - <span id='MB'>0</span>/" + Math.round(SelectedFile.size / 1048576) + "MB</span>";
@@ -64,7 +70,7 @@ function StartUpload(socket){
             }else{
                 var data = event.target.result;
             }
-            socket.emit('Upload', { 'Name' : Name, Data : data });
+            socket.emit('Upload', { 'Name' : Name, 'Data': data });
         }
         socket.emit('Start', { 'Name' : Name, 'Size' : SelectedFile.size });
     }else{
@@ -76,4 +82,8 @@ function UpdateBar(percent){
     document.getElementById('percent').innerHTML = (Math.round(percent*100)/100) + '%';
     let MBDone = Math.round(((percent/100.0) * SelectedFile.size) / 1048576);
     document.getElementById('MB').innerHTML = String(MBDone);
+}
+
+function StartDownload(socket){
+    socket.emit('Download',{'Name': '3g.txt'})
 }

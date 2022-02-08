@@ -23,117 +23,73 @@ app.set('port', port);
 
 var server = http.createServer(app);
 var io = require('socket.io')(server);
-const  S3FileConcat  =  require('s3-file-concat');
-const  {  concatFiles  }  =  S3FileConcat({
-  "accessKeyId":  "",
-  "secretAccessKey":  "",
-  "region":  "ap-northeast-2",
-  "bucket":  "raccoon-bucket"
-});
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
-  "accessKeyId":  "",
-  "secretAccessKey":  "",
+  'accessKeyId': '',
+  'secretAccessKey': ''
 });
 
-io.on('connection', function(socket){
+io.on('connection', function (socket) {
   var Files = {};
-  socket.on('Start', function(data){
-    console.log('socket start!!');
+  socket.on('Start', function (data) {
     var Name = data.Name;
     Files[Name] = {
-      FileSize : data.Size,
-      Data : "",
-      Downloaded : 0,
-      ChunkBucket : []
+      FileSize: data.Size,
+      Data: '',
+      Downloaded: 0,
+      ChunkBucket: 0
     };
     var Place = 0;
-    socket.emit('MoreData', { 'Place' : Place, Percent : 0 });
-    // var Stat = fs.statSync(path.join(__dirname,'..','Temp',Name));
-    // if(Stat.isFile()){
-    //   Files[Name].Downloaded = Stat.size;
-    //   Place = Stat.size / 524288;
-    // }
-    // fs.open(path.join(__dirname,'..','Temp',Name), "a+", function(err, fd){
-    //   if(err) {
-    //     console.log(err);
-    //   }else {
-    //     Files[Name].Handler = fd;
-    //     socket.emit('MoreData', { 'Place' : Place, Percent : 0 });
-    //   }
-    // });
-  })
+    console.log(`${Name} 파일 업로드 시작!!`);
+    socket.emit('MoreData', {'Place': Place, Percent: 0});
+  });
 
-  socket.on('Upload', function (data){
+  socket.on('Upload', function (data) {
     const Name = data.Name;
     Files[Name].Downloaded += data.Data.length;
     Files[Name].Data += data.Data;
-    if(Files[Name].Downloaded == Files[Name].FileSize){
-      if(Files[Name].ChunkBucket.length > 0){
-        const params = {
-          Bucket: 'raccoon-bucket',
-          Key: `${Files[Name].ChunkBucket.length}.txt`,
-          Body: Files[Name].Data
-        };
-        s3.upload(params, function(s3Err, data) {
-          if (s3Err) throw s3Err
-          Files[Name].Data = ""; //Reset The Buffer
-          Files[Name].ChunkBucket=[...Files[Name].ChunkBucket,`${Files[Name].ChunkBucket.length}.txt`]
-          // concatFiles(Files[Name].ChunkBucket,  {
-          //   targetFileKey: '3g.txt'
-          // }).then(output => {
-          //   console.log(Files[Name].ChunkBucket);
-          //   console.log(Name + " : writing is completed.");
-          // }).catch(error  =>  console.log('error occured oops ',  error));
-        });
-      }else{
-
-      }
-      // fs.write(Files[Name].Handler, Files[Name].Data, null, 'Binary', function(err, written) {
-      //   if (err) console.error(err);
-      //   //Generate movie thumbnail
-      //   var readable = fs.createReadStream(path.join(__dirname,'..','Temp',Name));
-      //   var writable = fs.createWriteStream(path.join(__dirname,'..','Video',Name));
-      //   readable.pipe(writable);
-      //   writable.on('finish', function (err) {
-      //     if (err) console.error(err);
-      //     console.log(Name + " : writing is completed.");
-      //     fs.close(Files[Name].Handler, function (err) { //close fs module
-      //       if (err) console.error(err);
-      //       fs.unlink(path.join(__dirname,'..','Temp',Name), function (err) {
-      //         //Moving File is Completed
-      //         if (err) console.error(err);
-      //         console.log(Name + " is deleted.");
-      //       });
-      //     });
-      //   });
-      // });
-    }
-    else if(Files[Name].Data.length > 10485760){
-      const params = {
-        Bucket: 'raccoon-bucket',
-        Key: `${Files[Name].ChunkBucket.length}.txt`,
-        Body: Files[Name].Data
-      };
-      s3.upload(params, function(s3Err, data) {
-        if (s3Err) throw s3Err
-        Files[Name].Data = ""; //Reset The Buffer
-        Files[Name].ChunkBucket=[...Files[Name].ChunkBucket,`${Files[Name].ChunkBucket.length}.txt`]
+    const params = {
+      'Bucket': `raccoon-bucket/${Name}`,
+      'Key': `${Files[Name].ChunkBucket}`,
+      'Body': Files[Name].Data
+    };
+    if (Files[Name].Downloaded === Files[Name].FileSize) {
+      s3.upload(params).on('httpUploadProgress', function (progress) {
+        console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+      }).send(function (s3Err, data) {
+        if (s3Err) throw s3Err;
         var Place = Files[Name].Downloaded / 524288;
         var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
-        socket.emit('MoreData', { 'Place' : Place, 'Percent' : Percent});
+        delete Files[Name];
+        socket.emit('MoreData', {'Place': Place, 'Percent': Percent});
       });
-      // fs.write(Files[Name].Handler, Files[Name].Data, null, 'Binary', function(err, written){
-      //   Files[Name].Data = ""; //Reset The Buffer
-      //   var Place = Files[Name].Downloaded / 524288;
-      //   var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
-      //   socket.emit('MoreData', { 'Place' : Place, 'Percent' : Percent});
-      // });
+    } else if (Files[Name].Data.length > 10485760) {
+      s3.upload(params).on('httpUploadProgress', function (progress) {
+        console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+      }).send(function (s3Err, data) {
+        if (s3Err) throw s3Err;
+        Files[Name].Data = ''; //Reset The Buffer
+        Files[Name].ChunkBucket += 1;
+        var Place = Files[Name].Downloaded / 524288;
+        var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
+        socket.emit('MoreData', {'Place': Place, 'Percent': Percent});
+      });
     } else {
+      console.log('access');
       var Place = Files[Name].Downloaded / 524288;
       var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
-      socket.emit('MoreData', { 'Place' : Place, 'Percent' : Percent});
+      socket.emit('MoreData', {'Place': Place, 'Percent': Percent});
     }
+  });
+
+  socket.on('Download', function (data) {
+    let params = {
+      Bucket: `raccoon-bucket`,
+      Prefix: data.Name + `/`
+    }
+    s3.listObjects(params,function (err,data){
+      console.log(data);
+    })
   });
 
 });
