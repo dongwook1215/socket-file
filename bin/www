@@ -49,7 +49,7 @@ io.on('connection', function (socket) {
     Files[Name].Downloaded += data.Data.length;
     Files[Name].Data += data.Data;
     const params = {
-      'Bucket': `raccoon-bucket/${Name}`,
+      'Bucket': `big-data-upload/${Name}`,
       'Key': `${Files[Name].ChunkBucket}`,
       'Body': Files[Name].Data
     };
@@ -82,13 +82,26 @@ io.on('connection', function (socket) {
     }
   });
 
-  socket.on('Download', function (data) {
+  socket.on('Download', async function (data) {
     let params = {
-      Bucket: `raccoon-bucket`,
-      Prefix: data.Name + `/`
+      Bucket: "big-data-upload",
+      Key: `${data.Name}/${data.Place}`
     }
-    s3.listObjects(params,function (err,data){
-      console.log(data);
+    console.log(params);
+    // const readStream = await s3.getObject(params).createReadStream();
+    // readStream.on('data', (chunk) => {
+    //     data.Data = [...data.Data, chunk];
+    //     socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': Buffer.concat(data.Data).toString() });
+    // });
+    // readStream.on('end', () => {
+    //     socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': Buffer.concat(data.Data).toString() });
+    // });
+    // readStream.on('error', (err) => {
+    //     console.error('error: ', err);
+    // });
+    s3.getObject(params,function (err,newData){
+      console.log(newData);
+      socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': newData.Body });
     })
   });
 

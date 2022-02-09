@@ -1,6 +1,7 @@
 var SelectedFile;
 var fileReader;
 var Name;
+var FilesData = new Map();
 window.addEventListener("load", Ready);
 function Ready(){
     var socket = io()
@@ -50,6 +51,54 @@ function Ready(){
             fileReader.readAsArrayBuffer(NewFile);
         }
     });
+    socket.on('MoreDownload', function (data){
+        let original_data
+        if(FilesData.has(data.Name)){
+            original_data = FilesData.get(data.Name);
+        }
+        appendBuffer(original_data,data.Data).then(uint8array => {
+            data.Data =[];
+            FilesData.set(data.Name, uint8array);
+            console.log(FilesData);
+            if(data.Place === data.Size){
+                console.log('finished');
+                // downloadFile(data)
+            }else{
+                socket.emit('Download',data)
+            }
+        })
+
+        // FilesData.has(data.Name) ? FilesData.set(data.Name, [...FilesData.get(data.Name),data.Data]) : FilesData.set(data.Name, [data.Data])
+        // data.Data =[];
+        // console.log(data.Place);
+        // if(data.Place === data.Size){
+        //     downloadFile(data)
+        // }else{
+        //     socket.emit('Download',data)
+        // }
+
+        // if(FilesData.has(data.Name)){
+        //     appendBuffer(FilesData.get(data.Name), data.Data).then(arrayBuffer => {
+        //         FilesData.set(data.Name, arrayBuffer)
+        //         data.Data =[];
+        //         console.log(FilesData);
+        //         if(data.Place === data.Size){
+        //             downloadFile(data)
+        //         }else{
+        //             socket.emit('Download',data)
+        //         }
+        //     })
+        // }else{
+        //     FilesData.set(data.Name, data.Data)
+        //     data.Data =[];
+        //     console.log(FilesData);
+        //     if(data.Place === data.Size){
+        //         downloadFile(data)
+        //     }else{
+        //         socket.emit('Download',data)
+        //     }
+        // }
+    })
 }
 
 function FileChosen(event) {
@@ -85,5 +134,33 @@ function UpdateBar(percent){
 }
 
 function StartDownload(socket){
-    socket.emit('Download',{'Name': '3g.txt'})
+    socket.emit('Download',{'Name': '5g.mov', 'Place': 0 , 'Size': 476 , 'Data': []})
 }
+
+function downloadFile(data){
+    const blob = new Blob(FilesData.get(data.Name), {type: 'text/plain'})
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${data.Name}`
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url);
+    FilesData.delete(data.Name);
+}
+
+function appendBuffer(buffer1, buffer2) {
+    return new Promise(resolve => {
+        let tmp;
+        if(buffer1){
+            tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
+            console.log(tmp);
+            tmp.set(new Uint8Array(buffer1), 0);
+            tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
+        }else{
+            tmp = new Uint8Array(buffer2.byteLength);
+            tmp.set(new Uint8Array(buffer2), 0);
+        }
+        resolve(tmp);
+    })
+};
