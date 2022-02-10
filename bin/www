@@ -23,6 +23,7 @@ app.set('port', port);
 
 var server = http.createServer(app);
 var io = require('socket.io')(server);
+var ss = require('socket.io-stream');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
   'accessKeyId': '',
@@ -104,6 +105,29 @@ io.on('connection', function (socket) {
       socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': newData.Body });
     })
   });
+
+  ss(socket).on('uploading',function (stream,data){
+    // stream.pipe();
+    var Name = data.name;
+    if(!Files[Name]){
+      Files[Name] = {
+        // FileSize: data.Size,
+        // Data: '',
+        Downloaded: 0,
+        // ChunkBucket: 0
+      };
+    }
+    stream.on('data',chunk => {
+      console.log(data);
+      console.log(chunk);
+      console.log(Files[Name])
+      Files[Name].Downloaded=Files[Name].Downloaded + 1;
+    })
+    stream.on('end',() => {
+      console.log('finish');
+      console.log(Files);
+    })
+  })
 
 });
 
