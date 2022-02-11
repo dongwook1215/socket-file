@@ -40,7 +40,7 @@ io.on('connection', function (socket) {
     let func_arr = [];
     for(let i = start;i < end; i++){
       let params = {
-        Bucket: "big-data-upload",
+        Bucket: "big-data-upload-for-raccoon",
         Key: `${data.Name}/${i}`
       }
       func_arr.push(callback => getBuffer(params,callback))
@@ -68,7 +68,7 @@ io.on('connection', function (socket) {
       console.log(chunk);
       console.log(Files[Name])
       const params = {
-        'Bucket': `big-data-upload/${Name}`,
+        'Bucket': `big-data-upload-for-raccoon/${Name}`,
         'Key': `${Files[Name].node}`,
         'Body': chunk
       };
