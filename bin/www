@@ -24,6 +24,7 @@ app.set('port', port);
 var server = http.createServer(app);
 var io = require('socket.io')(server);
 var ss = require('socket.io-stream');
+const async = require('async');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
   'accessKeyId': '',
@@ -32,77 +33,24 @@ const s3 = new AWS.S3({
 
 io.on('connection', function (socket) {
   var Files = {};
-  socket.on('Start', function (data) {
-    var Name = data.Name;
-    Files[Name] = {
-      FileSize: data.Size,
-      Data: '',
-      Downloaded: 0,
-      ChunkBucket: 0
-    };
-    var Place = 0;
-    console.log(`${Name} 파일 업로드 시작!!`);
-    socket.emit('MoreData', {'Place': Place, Percent: 0});
-  });
 
-  socket.on('Upload', function (data) {
-    const Name = data.Name;
-    Files[Name].Downloaded += data.Data.length;
-    Files[Name].Data += data.Data;
-    const params = {
-      'Bucket': `big-data-upload/${Name}`,
-      'Key': `${Files[Name].ChunkBucket}`,
-      'Body': Files[Name].Data
-    };
-    if (Files[Name].Downloaded === Files[Name].FileSize) {
-      s3.upload(params).on('httpUploadProgress', function (progress) {
-        console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
-      }).send(function (s3Err, data) {
-        if (s3Err) throw s3Err;
-        var Place = Files[Name].Downloaded / 524288;
-        var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
-        delete Files[Name];
-        socket.emit('MoreData', {'Place': Place, 'Percent': Percent});
-      });
-    } else if (Files[Name].Data.length > 10485760) {
-      s3.upload(params).on('httpUploadProgress', function (progress) {
-        console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
-      }).send(function (s3Err, data) {
-        if (s3Err) throw s3Err;
-        Files[Name].Data = ''; //Reset The Buffer
-        Files[Name].ChunkBucket += 1;
-        var Place = Files[Name].Downloaded / 524288;
-        var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
-        socket.emit('MoreData', {'Place': Place, 'Percent': Percent});
-      });
-    } else {
-      console.log('access');
-      var Place = Files[Name].Downloaded / 524288;
-      var Percent = (Files[Name].Downloaded / Files[Name].FileSize) * 100;
-      socket.emit('MoreData', {'Place': Place, 'Percent': Percent});
+  socket.on('Download', function (data) {
+    let start = data.Start;
+    let end = (data.End < data.Final) ? data.End : data.Final;
+    let func_arr = [];
+    for(let i = start;i < end; i++){
+      let params = {
+        Bucket: "big-data-upload",
+        Key: `${data.Name}/${i}`
+      }
+      func_arr.push(callback => getBuffer(params,callback))
     }
-  });
-
-  socket.on('Download', async function (data) {
-    let params = {
-      Bucket: "big-data-upload",
-      Key: `${data.Name}/${data.Place}`
-    }
-    console.log(params);
-    // const readStream = await s3.getObject(params).createReadStream();
-    // readStream.on('data', (chunk) => {
-    //     data.Data = [...data.Data, chunk];
-    //     socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': Buffer.concat(data.Data).toString() });
-    // });
-    // readStream.on('end', () => {
-    //     socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': Buffer.concat(data.Data).toString() });
-    // });
-    // readStream.on('error', (err) => {
-    //     console.error('error: ', err);
-    // });
-    s3.getObject(params,function (err,newData){
-      console.log(newData);
-      socket.emit('MoreDownload',{ 'Name': '5g.mov', 'Place': data.Place + 1 , 'Size': 476, 'Data': newData.Body });
+    async.parallel(func_arr,function(err,result){
+      data.Start = data.Start + 1001
+      data.End = data.End + 1001
+      data.Data = Buffer.concat(result);
+      console.log(data.Data);
+      socket.emit('MoreDownload',data)
     })
   });
 
@@ -111,17 +59,27 @@ io.on('connection', function (socket) {
     var Name = data.name;
     if(!Files[Name]){
       Files[Name] = {
-        // FileSize: data.Size,
-        // Data: '',
-        Downloaded: 0,
-        // ChunkBucket: 0
+        node: 0,
+        s3: 0
       };
     }
     stream.on('data',chunk => {
       console.log(data);
       console.log(chunk);
       console.log(Files[Name])
-      Files[Name].Downloaded=Files[Name].Downloaded + 1;
+      const params = {
+        'Bucket': `big-data-upload/${Name}`,
+        'Key': `${Files[Name].node}`,
+        'Body': chunk
+      };
+      s3.upload(params).on('httpUploadProgress', function (progress) {
+        console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+      }).send(function (s3Err, data) {
+        if (s3Err) throw s3Err;
+        Files[Name].s3=Files[Name].s3 + 1;
+        console.log(Files[Name].s3);
+      });
+      Files[Name].node=Files[Name].node + 1;
     })
     stream.on('end',() => {
       console.log('finish');
@@ -197,4 +155,12 @@ function onListening() {
       ? 'pipe ' + addr
       : 'port ' + addr.port;
   debug('Listening on ' + bind);
+}
+
+function getBuffer(params,callback){
+  // const url = await s3.getSignedUrl('getObject', params);
+  // console.log(params);
+  s3.getObject(params,function (err,newData){
+    callback(null,newData.Body);
+  })
 }
