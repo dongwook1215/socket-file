@@ -74,7 +74,7 @@ function StartDownload(socket){
 function StartUpload(socket){
     var size = 0;
     var stream = ss.createStream();
-    ss(socket).emit('uploading', stream,{name: SelectedFile.name})
+    ss(socket).emit('uploading', stream,{name: SelectedFile.name ,size: SelectedFile.size})
     var blobStream = ss.createBlobReadStream(SelectedFile);
 
     blobStream.on('data', function(chunk) {
