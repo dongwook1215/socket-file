@@ -34,6 +34,7 @@ function Ready(){
                     const a = document.createElement("a")
                     a.href = url
                     a.download = `${data.Name}`
+                    document.getElementById('download_percent').innerText = '100%';
                     a.click()
                     a.remove()
                     window.URL.revokeObjectURL(url);
@@ -93,6 +94,7 @@ function getURLtoBlob(url){
     return new Promise(async resolve => {
         await fetch(url).then(async r => {
             let blob = await r.blob();
+            window.URL.revokeObjectURL(url);
             resolve(blob);
         })
     })
