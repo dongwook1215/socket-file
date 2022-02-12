@@ -35,7 +35,7 @@ io.on('connection', function (socket) {
   var Files = {};
 
   socket.on('Download', function (data) {
-    let count = 1001
+    let count = 1
     let start = data.Start;
     let end = (data.End < data.Final) ? data.End : data.Final;
     let func_arr = [];

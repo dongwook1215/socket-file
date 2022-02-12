@@ -29,7 +29,7 @@ function Ready(){
             FilesData.set(data.Name, [...FilesData.get(data.Name),getURLtoBlob(window.URL.createObjectURL(blob))]);
             if(data.End > data.Final){
                 Promise.all(FilesData.get(data.Name)).then(result => {
-                    let newblob = new Blob(result, {type: 'application/octet-stream'})
+                    let newblob = new Blob(result, {type: 'video/mp4'})
                     const url = window.URL.createObjectURL(newblob);
                     const a = document.createElement("a")
                     a.href = url
@@ -64,11 +64,12 @@ function Ready(){
 
 function FileChosen(event) {
     SelectedFile = event.target.files[0];
+    console.log(SelectedFile)
     document.getElementById('NameBox').value = SelectedFile.name;
 }
 
 function StartDownload(socket){
-    socket.emit('Download',{'Name': '5g.mov', 'Start': 0 , 'End': 1001, 'Final': 328787 })
+    socket.emit('Download',{'Name': '700mb.mp4', 'Start': 0 , 'End': 1, 'Final': 74 })
 }
 
 function StartUpload(socket){
