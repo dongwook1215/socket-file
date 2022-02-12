@@ -28,18 +28,44 @@ function Ready(){
             // console.log(FilesData.get(data.Name));
             FilesData.set(data.Name, [...FilesData.get(data.Name),getURLtoBlob(window.URL.createObjectURL(blob))]);
             if(data.End > data.Final){
-                Promise.all(FilesData.get(data.Name)).then(result => {
-                    let newblob = new Blob(result, {type: 'video/mp4'})
-                    const url = window.URL.createObjectURL(newblob);
-                    const a = document.createElement("a")
-                    a.href = url
-                    a.download = `${data.Name}`
+                Promise.all(FilesData.get(data.Name)).then(async result => {
                     document.getElementById('download_percent').innerText = '100%';
-                    a.click()
-                    a.remove()
-                    window.URL.revokeObjectURL(url);
-                    // downloadFile(data)
-                    delete FilesData[data.Name];
+                    var zip = new JSZip();
+                    let newblob = new Blob(result, {type: 'video/mp4'});
+                    // let file = new File([newblob],`${data.Name}`,{type: 'video/mp4'})
+
+                    zip.file(`fold/${data.Name}`,newblob);
+                    zip.generateAsync({
+                        type:"blob",
+                        compression: "DEFLATE",
+                        streamFiles: true},
+                        function updateCallback(metadata) {
+                            document.getElementById('zip_percent').innerText = "압축: " + metadata.percent.toFixed(2) + " %"
+                            // if(metadata.currentFile) {
+                            //     console.log("current file = " + metadata.currentFile);
+                            // }
+                    }).then(function (blob){
+                        console.log(blob)
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement("a")
+                        a.href = url
+                        a.download = `folder.zip`
+                        a.click()
+                        a.remove()
+                        window.URL.revokeObjectURL(url);
+                        delete FilesData[data.Name];
+                    })
+
+                    // const url = window.URL.createObjectURL(newblob);
+                    // const a = document.createElement("a")
+                    // a.href = url
+                    // a.download = `${data.Name}`
+                    // document.getElementById('download_percent').innerText = '100%';
+                    // a.click()
+                    // a.remove()
+                    // window.URL.revokeObjectURL(url);
+                    // // downloadFile(data)
+                    // delete FilesData[data.Name];
                 })
             }else{
                 data.Data=''
