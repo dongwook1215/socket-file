@@ -17,7 +17,8 @@
     "morgan": "~1.9.1",
     "s3-file-concat": "^1.0.7",
     "socket.io": "^4.4.1",
-    "socket.io-stream": "^0.9.1"
+    "socket.io-stream": "^0.9.1",
+    "zlib": "^1.0.5"
   },
   "devDependencies": {
     "aws-sdk": "^2.1068.0"

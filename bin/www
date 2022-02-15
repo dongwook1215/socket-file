@@ -24,6 +24,7 @@ app.set('port', port);
 var server = http.createServer(app);
 var io = require('socket.io')(server);
 var ss = require('socket.io-stream');
+var zlib = require('zlib');
 const async = require('async');
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({
@@ -73,20 +74,37 @@ io.on('connection', function (socket) {
       Files[Name].downloaded += chunk.length;
       Files[Name].buffer = Files[Name].buffer ? Buffer.concat([Files[Name].buffer,chunk]) : chunk;
       if(Files[Name].buffer.length > 10485760 || Files[Name].downloaded === Size){
-        const params = {
-          'Bucket': `big-data-upload-for-raccoon/${Name}`,
-          'Key': `${Files[Name].node}`,
-          'Body': Files[Name].buffer
-        };
-        s3.upload(params).on('httpUploadProgress', function (progress) {
-          console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
-        }).send(function (s3Err, data) {
-          if (s3Err) throw s3Err;
-          Files[Name].s3 = Files[Name].s3 + 1;
-          console.log(Files[Name].s3);
-        });
-        Files[Name].node = Files[Name].node + 1;
+        zlib.gzip(Files[Name].buffer,function (err,buffer){
+          const params = {
+            'Bucket': `big-data-upload-for-raccoon/${Name}`,
+            'Key': `${Files[Name].node}`,
+            'Body': buffer
+          };
+          s3.upload(params).on('httpUploadProgress', function (progress) {
+            console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+          }).send(function (s3Err, data) {
+            if (s3Err) throw s3Err;
+            Files[Name].s3 = Files[Name].s3 + 1;
+            console.log(Files[Name].s3);
+          });
+          Files[Name].node = Files[Name].node + 1;
+        })
         delete Files[Name].buffer;
+
+        // const params = {
+        //   'Bucket': `big-data-upload-for-raccoon/${Name}`,
+        //   'Key': `${Files[Name].node}`,
+        //   'Body': Files[Name].buffer
+        // };
+        // s3.upload(params).on('httpUploadProgress', function (progress) {
+        //   console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+        // }).send(function (s3Err, data) {
+        //   if (s3Err) throw s3Err;
+        //   Files[Name].s3 = Files[Name].s3 + 1;
+        //   console.log(Files[Name].s3);
+        // });
+        // Files[Name].node = Files[Name].node + 1;
+        // delete Files[Name].buffer;
       }
     })
     stream.on('end',() => {
@@ -169,6 +187,8 @@ function getBuffer(params,callback){
   // const url = await s3.getSignedUrl('getObject', params);
   // console.log(params);
   s3.getObject(params,function (err,newData){
-    callback(null,newData.Body);
+    zlib.gunzip(newData.Body,function (err,buffer){
+        callback(null,buffer);
+    })
   })
 }
