@@ -5,6 +5,7 @@ var FilesData = new Map();
 window.addEventListener("load", Ready);
 
 function Ready(){
+
     var socket = io();
     if(window.File && window.FileReader){
         document.getElementById('UploadButton').addEventListener('click', function (){
@@ -21,7 +22,7 @@ function Ready(){
     }
 
     socket.on('MoreDownload', async function (data){
-        const blob = new Blob([data.Data], {type: 'application/octet-stream'})
+        const blob = new Blob([data.Data], {type: 'application/octert-stream'})
 
         if(FilesData.has(data.Name)){
             //처음이 아닌 경우
@@ -30,31 +31,32 @@ function Ready(){
             if(data.End > data.Final){
                 Promise.all(FilesData.get(data.Name)).then(async result => {
                     document.getElementById('download_percent').innerText = '100%';
-                    var zip = new JSZip();
+                    // var zip = new JSZip();
                     let newblob = new Blob(result, {type: 'video/mp4'});
                     // let file = new File([newblob],`${data.Name}`,{type: 'video/mp4'})
 
-                    zip.file(`fold/${data.Name}`,newblob);
-                    zip.generateAsync({
-                        type:"blob",
-                        compression: "DEFLATE",
-                        streamFiles: true},
-                        function updateCallback(metadata) {
-                            document.getElementById('zip_percent').innerText = "압축: " + metadata.percent.toFixed(2) + " %"
-                            // if(metadata.currentFile) {
-                            //     console.log("current file = " + metadata.currentFile);
-                            // }
-                    }).then(function (blob){
-                        console.log(blob)
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement("a")
-                        a.href = url
-                        a.download = `folder.zip`
-                        a.click()
-                        a.remove()
-                        window.URL.revokeObjectURL(url);
-                        delete FilesData[data.Name];
-                    })
+
+                    // zip.file(`fold/${data.Name}`,newblob);
+                    // zip.generateAsync({
+                    //     type:"blob",
+                    //     compression: "DEFLATE",
+                    //     streamFiles: true},
+                    //     function updateCallback(metadata) {
+                    //         document.getElementById('zip_percent').innerText = "압축: " + metadata.percent.toFixed(2) + " %"
+                    //         // if(metadata.currentFile) {
+                    //         //     console.log("current file = " + metadata.currentFile);
+                    //         // }
+                    // }).then(function (blob){
+                    //     console.log(blob)
+                    //     const url = window.URL.createObjectURL(blob);
+                    //     const a = document.createElement("a")
+                    //     a.href = url
+                    //     a.download = `folder.zip`
+                    //     a.click()
+                    //     a.remove()
+                    //     window.URL.revokeObjectURL(url);
+                    //     delete FilesData[data.Name];
+                    // })
 
                     // const url = window.URL.createObjectURL(newblob);
                     // const a = document.createElement("a")
@@ -93,6 +95,26 @@ function FileChosen(event) {
     SelectedFile = event.target.files[0];
     console.log(SelectedFile)
     document.getElementById('NameBox').value = SelectedFile.name;
+
+    const zipped = fflate.zipSync({
+        // Directories can be nested structures, as in an actual filesystem
+        'dir1': {
+            'nested': {
+                // You can use Unicode in filenames
+                '你好.txt': fflate.strToU8('Hey there!')
+            },
+            // You can also manually write out a directory path
+            'other/tmp.txt': SelectedFile
+        },
+
+    }, {
+        // These options are the defaults for all files, but file-specific
+        // options take precedence.
+        level: 1,
+        // Obfuscate last modified time by default
+        mtime: new Date()
+    });
+    console.log(zipped)
 }
 
 function StartDownload(socket){

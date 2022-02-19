@@ -7,6 +7,14 @@
   <script src="/library/socket.io-stream.js"></script>
   <script src="/jszip/jszip.min.js"></script>
   <script src="/jszip/jszip-utils.min.js"></script>
+
+  <script src="https://unpkg.com/fflate"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate/umd/index.js"></script>
+  <!-- Now, the global variable fflate contains the library -->
+  <!-- If you're going buildless but want ESM, import from Skypack -->
+  <script type="module">
+      import * as fflate from 'https://cdn.skypack.dev/fflate?min';
+  </script>
   <script src="/javascripts/socket.js"></script>
 </head>
 <body>
