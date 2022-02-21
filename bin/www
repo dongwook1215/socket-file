@@ -110,6 +110,13 @@ io.on('connection', function (socket) {
     stream.on('end',() => {
       console.log('finish');
       console.log(Files);
+
+      let timerId = setInterval(() => {
+          if(Files[Name].node === Files[Name].s3){
+            console.log('real upload success')
+            clearInterval(timerId);
+          }
+      },2000)
     })
   })
 
