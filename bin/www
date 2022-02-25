@@ -22,7 +22,7 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
-var io = require('socket.io')(server);
+var io = require('socket.io')(server,{maxHttpBufferSize: 1e8, pingTimeout: 60000});
 var ss = require('socket.io-stream');
 var zlib = require('zlib');
 const async = require('async');

@@ -128,9 +128,9 @@ function StartDownload(socket){
 
 function StartUpload(socket){
     var size = 0;
-    var stream = ss.createStream();
+    var stream = ss.createStream({highWaterMark:10485760});
     ss(socket).emit('uploading', stream,{name: SelectedFile.name ,size: SelectedFile.size})
-    var blobStream = ss.createBlobReadStream(SelectedFile);
+    var blobStream = ss.createBlobReadStream(SelectedFile,{highWaterMark:10485760});
 
     blobStream.on('data', function(chunk) {
         console.log(chunk)
