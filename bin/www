@@ -21,114 +21,149 @@ app.set('port', port);
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
-var io = require('socket.io')(server,{maxHttpBufferSize: 1e8, pingTimeout: 60000});
+const cluster = require("cluster");
+const { Server } = require("socket.io");
+const numCPUs = require("os").cpus().length;
+const { setupMaster, setupWorker } = require("@socket.io/sticky");
+const { createAdapter, setupPrimary } = require("@socket.io/cluster-adapter");
+
 var ss = require('socket.io-stream');
 var zlib = require('zlib');
 const async = require('async');
 const AWS = require('aws-sdk');
+
 const s3 = new AWS.S3({
   'accessKeyId': '',
   'secretAccessKey': ''
 });
 
-io.on('connection', function (socket) {
-  var Files = {};
+const server = http.createServer(app);
 
-  socket.on('Download', function (data) {
-    let count = 1
-    let start = data.Start;
-    let end = (data.End < data.Final) ? data.End : data.Final;
-    let func_arr = [];
-    for(let i = start;i < end; i++){
-      let params = {
-        Bucket: "big-data-upload-for-raccoon",
-        Key: `${data.Name}/${i}`
-      }
-      func_arr.push(callback => getBuffer(params,callback))
-    }
-    async.parallel(func_arr,function(err,result){
-      data.Start = data.Start + count
-      data.End = data.End + count
-      data.Data = Buffer.concat(result);
-      console.log(data.Data);
-      socket.emit('MoreDownload',data)
-    })
+if (cluster.isMaster) {
+  console.log(`Master ${process.pid} is running`);
+
+  setupMaster(server, {
+    loadBalancingMethod: "least-connection", // either "random", "round-robin" or "least-connection"
   });
 
-  ss(socket).on('uploading',function (stream,data){
-    // stream.pipe();
-    var Name = data.name;
-    var Size = data.size;
-    if(!Files[Name]){
-      Files[Name] = {
-        node: 0,
-        s3: 0,
-        downloaded: 0
-      };
-    }
-    stream.on('data',chunk => {
-      console.log(data);
-      console.log(chunk);
-      console.log(Files[Name])
-      Files[Name].downloaded += chunk.length;
-      Files[Name].buffer = Files[Name].buffer ? Buffer.concat([Files[Name].buffer,chunk]) : chunk;
-      if(Files[Name].buffer.length > 10485760 || Files[Name].downloaded === Size){
-        zlib.gzip(Files[Name].buffer,function (err,buffer){
-          const params = {
-            'Bucket': `big-data-upload-for-raccoon/${Name}`,
-            'Key': `${Files[Name].node}`,
-            'Body': buffer
-          };
-          s3.upload(params).on('httpUploadProgress', function (progress) {
-            console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
-          }).send(function (s3Err, data) {
-            if (s3Err) throw s3Err;
-            Files[Name].s3 = Files[Name].s3 + 1;
-            console.log(Files[Name].s3);
-          });
-          Files[Name].node = Files[Name].node + 1;
-        })
-        delete Files[Name].buffer;
+  setupPrimary();
 
-        // const params = {
-        //   'Bucket': `big-data-upload-for-raccoon/${Name}`,
-        //   'Key': `${Files[Name].node}`,
-        //   'Body': Files[Name].buffer
-        // };
-        // s3.upload(params).on('httpUploadProgress', function (progress) {
-        //   console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
-        // }).send(function (s3Err, data) {
-        //   if (s3Err) throw s3Err;
-        //   Files[Name].s3 = Files[Name].s3 + 1;
-        //   console.log(Files[Name].s3);
-        // });
-        // Files[Name].node = Files[Name].node + 1;
-        // delete Files[Name].buffer;
+  server.listen(port);
+  server.on('error', onError);
+  server.on('listening', onListening);
+
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+
+  cluster.on("exit", (worker) => {
+    console.log(`Worker ${worker.process.pid} died`);
+    cluster.fork();
+  });
+}else{
+  console.log(`Worker ${process.pid} started`);
+
+  const io = new Server(server,{maxHttpBufferSize: 10485760, pingTimeout: 60000});
+  io.adapter(createAdapter());
+  setupWorker(io);
+
+  io.on('connection', function (socket) {
+    var Files = {};
+
+    socket.on('Download', function (data) {
+      let count = 1
+      let start = data.Start;
+      let end = (data.End < data.Final) ? data.End : data.Final;
+      let func_arr = [];
+      for(let i = start;i < end; i++){
+        let params = {
+          Bucket: "big-data-upload-for-raccoon",
+          Key: `${data.Name}/${i}`
+        }
+        func_arr.push(callback => getBuffer(params,callback))
       }
-    })
-    stream.on('end',() => {
-      console.log('finish');
-      console.log(Files);
+      async.parallel(func_arr,function(err,result){
+        data.Start = data.Start + count
+        data.End = data.End + count
+        data.Data = Buffer.concat(result);
+        socket.emit('MoreDownload',data)
+      })
+    });
 
-      let timerId = setInterval(() => {
+    ss(socket).on('uploading',function (stream,data){
+      // stream.pipe();
+      var Name = data.name;
+      var Size = data.size;
+      if(!Files[Name]){
+        console.time('5g');
+        Files[Name] = {
+          node: 0,
+          s3: 0
+          // downloaded: 0
+        };
+      }
+      stream.on('data', chunk => {
+        // Files[Name].downloaded += chunk.length;
+
+        // console.log(data);
+        // console.log(chunk);
+        // console.log(Files[Name])
+
+        console.log(`Worker ${process.pid} working`);
+
+        const params = {
+          'Bucket': `big-data-upload-for-raccoon/${Name}`,
+          'Key': `${Files[Name].node}`,
+          'Body': chunk
+        };
+        ziptoS3(params,Files,Name);
+        Files[Name].node = Files[Name].node + 1;
+
+
+        // Files[Name].buffer = Files[Name].buffer ? Buffer.concat([Files[Name].buffer,chunk]) : chunk;
+        // if(Files[Name].buffer.length >= 10485760 || Files[Name].downloaded === Size){
+        //   zlib.gzip(Files[Name].buffer,function (err,buffer){
+        //     const params = {
+        //       'Bucket': `big-data-upload-for-raccoon/${Name}`,
+        //       'Key': `${Files[Name].node}`,
+        //       'Body': buffer
+        //     };
+        //     s3.upload(params).on('httpUploadProgress', function (progress) {
+        //       console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+        //     }).send(function (s3Err, data) {
+        //       if (s3Err) throw s3Err;
+        //       Files[Name].s3 = Files[Name].s3 + 1;
+        //       console.log(Files[Name].s3);
+        //     });
+        //     Files[Name].node = Files[Name].node + 1;
+        //   })
+        //   delete Files[Name].buffer;
+        // }
+      })
+      stream.on('end',() => {
+        console.log('finish');
+        console.log(Files);
+
+        let timerId = setInterval(() => {
           if(Files[Name].node === Files[Name].s3){
-            console.log('real upload success')
+            console.log('real upload success');
+            console.timeEnd('5g');
             clearInterval(timerId);
           }
-      },2000)
+        },2000)
+      })
     })
-  })
 
-});
+  });
+}
 
 /**
  * Listen on provided port, on all network interfaces.
  */
 
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+// server.listen(port);
+// server.on('error', onError);
+// server.on('listening', onListening);
 
 /**
  * Normalize a port into a number, string, or false.
@@ -192,10 +227,25 @@ function onListening() {
 
 function getBuffer(params,callback){
   // const url = await s3.getSignedUrl('getObject', params);
-  // console.log(params);
+  console.log(params);
   s3.getObject(params,function (err,newData){
     zlib.gunzip(newData.Body,function (err,buffer){
+      console.log(buffer);
         callback(null,buffer);
     })
+  })
+}
+
+function ziptoS3(params,Files,Name){
+  zlib.gzip(params['Body'],function (err,buffer){
+    console.log('전송 정보: ',params);
+    params['Body'] = buffer
+    s3.upload(params).on('httpUploadProgress', function (progress) {
+      console.log('Uploaded :: ' + String(parseInt((progress.loaded * 100) / progress.total)) + '%');
+    }).send(function (s3Err, data) {
+      if (s3Err) throw s3Err;
+      Files[Name].s3 = Files[Name].s3 + 1;
+    });
+    params = null;
   })
 }

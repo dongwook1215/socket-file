@@ -21,6 +21,8 @@
     "zlib": "^1.0.5"
   },
   "devDependencies": {
+    "@socket.io/cluster-adapter": "^0.1.0",
+    "@socket.io/sticky": "^1.0.1",
     "aws-sdk": "^2.1068.0"
   }
 }
