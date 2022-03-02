@@ -6,7 +6,7 @@ window.addEventListener("load", Ready);
 
 function Ready(){
 
-    var socket = io();
+    var socket = io('server address',{transports:["websocket"]});
     if(window.File && window.FileReader){
         document.getElementById('UploadButton').addEventListener('click', function (){
             StartUpload(socket)
