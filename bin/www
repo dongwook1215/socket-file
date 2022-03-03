@@ -42,6 +42,7 @@ const server = http.createServer(app);
 if (cluster.isMaster) {
   console.log(`Master ${process.pid} is running`);
 
+  //sticky connect
   setupMaster(server, {
     loadBalancingMethod: "least-connection", // either "random", "round-robin" or "least-connection"
   });
@@ -159,6 +160,7 @@ if (cluster.isMaster) {
  * Listen on provided port, on all network interfaces.
  */
 
+//클러스터 모듈 취소 시 주석 해제 필
 // server.listen(port);
 // server.on('error', onError);
 // server.on('listening', onListening);

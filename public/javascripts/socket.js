@@ -76,9 +76,47 @@ function Ready(){
             FilesData.set(data.Name, [getURLtoBlob(window.URL.createObjectURL(blob))]);
 
             if(data.End > data.Final){
-                console.log('finished');
-                // downloadFile(data)
-                delete FilesData[data.Name];
+                // console.log('finished');
+                // // downloadFile(data)
+                // delete FilesData[data.Name];
+
+                Promise.all(FilesData.get(data.Name)).then(async result => {
+                    document.getElementById('download_percent').innerText = '100%';
+                    // var zip = new JSZip();
+                    let newblob = new Blob(result, {type: 'video/quicktime'});
+
+                    // zip.file(`fold/${data.Name}`,newblob);
+                    // zip.generateAsync({
+                    //     type:"blob",
+                    //     compression: "DEFLATE",
+                    //     streamFiles: true},
+                    //     function updateCallback(metadata) {
+                    //         document.getElementById('zip_percent').innerText = "압축: " + metadata.percent.toFixed(2) + " %"
+                    //         // if(metadata.currentFile) {
+                    //         //     console.log("current file = " + metadata.currentFile);
+                    //         // }
+                    // }).then(function (blob){
+                    //     console.log(blob)
+                    //     const url = window.URL.createObjectURL(blob);
+                    //     const a = document.createElement("a")
+                    //     a.href = url
+                    //     a.download = `folder.zip`
+                    //     a.click()
+                    //     a.remove()
+                    //     window.URL.revokeObjectURL(url);
+                    //     delete FilesData[data.Name];
+                    // })
+
+                    const url = window.URL.createObjectURL(newblob);
+                    const a = document.createElement("a")
+                    a.href = url
+                    a.download = `${data.Name}`
+                    document.getElementById('download_percent').innerText = '100%';
+                    a.click()
+                    a.remove()
+                    window.URL.revokeObjectURL(url);
+                    delete FilesData[data.Name];
+                })
             }else{
                 data.Data='';
                 document.getElementById('download_percent').innerText = Math.floor(data.Start / data.Final * 100) + '%';
