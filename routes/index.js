@@ -13,7 +13,7 @@ const s3 = new AWS.S3({
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
-  res.render('indx', { title: 'Express' });
+  res.render('index', { title: 'Express' });
 });
 
 router.get('/test', function(req, res, next) {
@@ -24,20 +24,34 @@ router.post('/download',function (req,res,next){
   //다운로드 새로운 방식에 대한 연구
 
   const combinedStream = CombinedStream.create();
+  let func = [];
 
-  for(let i =0;i < 514; i++){
-    let params = {
-      Bucket: "big-data-upload-for-raccoon",
-      Key: `5g-file.mov/${i}`
-    }
+  for(let i = 0;i < 514; i++){
+    func.push((json,callback) => {getStream(json,callback)})
   }
+
+  const file_count = 0;
+
+  async.waterfall([(callback) => {
+      callback(null, { file_count: file_count, combinedStream: combinedStream });
+  },...func],function (err,result){
+    console.log('waterfall: ',result);
+  })
 
 })
 
-function getStream(params,callback){
+function getStream(json,callback){
+  let { file_count, combinedStream } = json;
+  let params = {
+    Bucket: "big-data-upload-for-raccoon",
+    Key: `5g-file.mov/${file_count}`
+  }
   s3.getObject(params,function (err,newData){
     zlib.gunzip(newData.Body,function (err,buffer){
-      callback(null,fs.createReadStream(buffer));
+      file_count += 1;
+      combinedStream.append(fs.createReadStream(buffer));
+      callback(null,{ file_count: file_count, combinedStream: combinedStream });
+      // callback(null,fs.createReadStream(buffer));
     })
   })
 }
