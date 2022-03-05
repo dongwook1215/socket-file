@@ -21,6 +21,24 @@ function Ready(){
         document.getElementById('UploadArea').innerHTML = "지원되지 않는 브라우저입니다. 브라우저를 업데이트하거나 IE나 Chrome을 사용하세요.";
     }
 
+    document.getElementById('another_download').addEventListener('click',function (){
+        $.ajax({
+            url: "/download",
+            type: "post",
+            async: false,
+            // data: {
+            //     "username":document.getElementById('login_id_input').value,
+            //     "password":document.getElementById('login_pw_input').value,
+            // },
+            success: function (result) {
+
+            },
+            error: function (e){
+
+            }
+        })
+    })
+
     socket.on('MoreDownload', async function (data){
         const blob = new Blob([data.Data], {type: 'application/octet-stream'})
 
